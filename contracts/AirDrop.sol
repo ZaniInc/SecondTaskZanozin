@@ -2,4 +2,14 @@
 
 pragma solidity 0.8.7;
 
-contract AirDrop {}
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
+contract AirDrop {
+
+    IERC20 private _token
+
+    constructor (address token) {
+        _token = token;
+    }
+
+}

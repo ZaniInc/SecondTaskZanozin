@@ -8,5 +8,4 @@ contract MyToken is ERC20 {
 
     constructor () ERC20("MyToken" , "MTN") {}
 
-
 }
