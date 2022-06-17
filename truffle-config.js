@@ -6,7 +6,7 @@ const path = require("path");
 module.exports = {
   networks: {
     development: {
-      port : 8545,
+      port : 7545,
       host : "127.0.0.1",
       network_id : "5777"
     }
