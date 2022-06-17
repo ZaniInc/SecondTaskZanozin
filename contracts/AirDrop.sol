@@ -48,9 +48,9 @@ contract AirDrop is EIP712 {
         address recepients_,
         uint256 amount_,
         uint256 deadline_,
-        uint8 calldata v_,
-        bytes32 calldata r_,
-        bytes32 calldata s_
+        uint8 v_,
+        bytes32 r_,
+        bytes32 s_
     ) external onlyOwner {
         require(
             amount_ != 0 && recepients_ != address(0) && deadline_ != 0,
@@ -80,9 +80,9 @@ contract AirDrop is EIP712 {
         address recepients_,
         uint256 amount_,
         uint256 deadline_,
-        uint8 calldata v_,
-        bytes32 calldata r_,
-        bytes32 calldata s_
+        uint8 v_,
+        bytes32 r_,
+        bytes32 s_
     ) external onlyOwner {
         require(
             amount_ != 0 && recepients_ != address(0) && deadline_ != 0,
