@@ -13,6 +13,19 @@ const chai = require("./setupChai.js");
 const BN = web3.utils.BN;
 const expect = chai.expect;
 
+var domain =[
+    {name: "name" , type : "string"},
+    {name: "version" , type : "string"},
+    {name: "chainId", type: "uint256"},
+    {name:"verifyingContract" , type:"address"}
+];
+var drop =[
+    {name: "recepient" , type : "address"},
+    {name: "amount" , type : "uint256"},
+    {name: "deadline", type: "uint256"},
+];
+
+
 netId = web3.eth.getChainId();
 
 contract("AirDrop", async ([owner, acc2, acc3, acc4]) => {
@@ -26,43 +39,38 @@ contract("AirDrop", async ([owner, acc2, acc3, acc4]) => {
         instanceTokenn = await MyTokenn.deployed();
         instanceAirDrop = await AirDrop.deployed();
 
-        // const msgParams = JSON.stringify({types :{
-        //     EIP712Domain : [
-        //         {name: "name" , type : "string"},
-        //         {name: "version" , type : "string"},
-        //         {name: "chainId", type: "uint256"},
-        //         {name:"verifyingContract" , type:"address"}
-        //     ],
-        //     drop:[
-        //         {name: "recepient" , type : "address"},
-        //         {name: "amount" , type : "uint256"},
-        //         {name: "deadline", type: "uint256"},
-        //     ]
-        // },
-        // primaryType : "drop",
-        // domain:{name:"AirDrop" , version: "1" , chainId : netId,verifyingContract:instanceAirDrop.address},
-        // message:{
-        //     recepient : acc2.address,
-        //     amount : new BN(30),
-        //     deadline : new BN(30)
-        // }
-        // });
+        const domainData ={name:"AirDrop" , version: "1" , chainId : netId,verifyingContract:instanceAirDrop.address};
+        var message = {
+            recepient : acc2.address,
+            amount : new BN(30),
+            deadline : new BN(30)
+        }
 
-        // let sign = await web3.currentProvider.send({
-        //     method: 'eth_signTypedData_v4',
-        //     params: [owner, msgParams],
-        //     from: owner.address,
-        // }, function (error, result) {
-        //     if (error) {
-        //         errorCallback();
-        //     } else {
-        //         const sig = sign;
-        //         const sig0 = sig.substring(2);
-        //         r = '0x' + sig0.substring(0, 64);
-        //         s = '0x' + sig0.substring(64, 128);
-        //         v = parseInt(sig0.substring(128, 130), 16);
-        //     }
-        // });
+        const msgParams = JSON.stringify({types :{
+            EIP712Domain: domain,
+            drop: drop,
+        },
+        domain:domainData,
+        primaryType : "drop",
+        message: message
+        });
+
+        let sign = await web3.currentProvider.send({
+            method: 'eth_signTypedData_v4',
+            params: [owner, msgParams],
+            from: owner.address,
+        }, function (error, result) {
+            if (error) {
+                errorCallback();
+            } else {
+                const sig = sign;
+                const sig0 = sig.substring(2);
+                r = '0x' + sig0.substring(0, 64);
+                s = '0x' + sig0.substring(64, 128);
+                v = parseInt(sig0.substring(128, 130), 16);
+                instanceAirDrop.ecre
+            }
+        });
 
     });
 
