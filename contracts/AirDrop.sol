@@ -36,6 +36,7 @@ contract AirDrop is EIP712 {
     }
 
     function depositTokens(uint256 amount_) external onlyOwner {
+        require(amount_ != 0, "Error : 'Amount' , equal to 0");
         token.safeTransferFrom(msg.sender, address(this), amount_);
     }
 
@@ -57,7 +58,7 @@ contract AirDrop is EIP712 {
             "Error :'recepients_' or 'amount_' or 'deadline_' equal to 0"
         );
 
-        uint256 deadline = (block.timestamp + (deadline_ * 1 days));
+        uint256 deadline = (block.timestamp + deadline_);
         bytes32 structHash = keccak256(
             abi.encode(DROP_HASH, recepients_, amount_, deadline)
         );
@@ -89,7 +90,7 @@ contract AirDrop is EIP712 {
             "Error :'recepients_' or 'amount_' or 'deadline_' equal to 0"
         );
 
-        uint256 deadline = (block.timestamp + (deadline_ * 1 days));
+        uint256 deadline = (block.timestamp + deadline_);
         bytes32 structHash = keccak256(
             abi.encode(DROP_HASH, recepients_, amount_, deadline)
         );
@@ -116,10 +117,18 @@ contract AirDrop is EIP712 {
     }
 
     function withdrawTokens() external onlyOwner {
+        require(
+            token.balanceOf(address(this)) > 0,
+            "Error : No availabale tokens to withdraw"
+        );
         token.safeTransfer(msg.sender, token.balanceOf(address(this)));
     }
 
     function withdrawEther() external onlyOwner {
+        require(
+            address(this).balance > 0,
+            "Error : No availabale ether to withdraw"
+        );
         payable(msg.sender).transfer(address(this).balance);
     }
 
