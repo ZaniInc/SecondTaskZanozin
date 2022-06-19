@@ -12,19 +12,19 @@ const {
 const chai = require("./setupChai.js");
 const BN = web3.utils.BN;
 const expect = chai.expect;
+const domains = require('./utils.js');
 
-var domain =[
+let domain =[
     {name: "name" , type : "string"},
     {name: "version" , type : "string"},
     {name: "chainId", type: "uint256"},
     {name:"verifyingContract" , type:"address"}
 ];
-var drop =[
+let drop =[
     {name: "recepient" , type : "address"},
     {name: "amount" , type : "uint256"},
     {name: "deadline", type: "uint256"},
 ];
-
 
 netId = web3.eth.getChainId();
 
@@ -48,7 +48,7 @@ contract("AirDrop", async ([owner, acc2, acc3, acc4]) => {
 
         const msgParams = JSON.stringify({types :{
             EIP712Domain: domain,
-            drop: drop,
+            drop: drop
         },
         domain:domainData,
         primaryType : "drop",
