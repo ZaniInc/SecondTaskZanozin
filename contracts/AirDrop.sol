@@ -27,9 +27,7 @@ contract AirDrop is EIP712 {
      * @notice 'DROP_HASH' is signature of primaryType 'Drop'
      */
     bytes32 public constant DROP_HASH =
-        keccak256(
-            "Drop(address recepient,uint256 amount, uint256 deadline)"
-        );
+        keccak256("Drop(address recepient,uint256 amount, uint256 deadline)");
 
     address private _owner;
 
@@ -168,7 +166,7 @@ contract AirDrop is EIP712 {
      *
      * NOTE : if you send ether to 0 address , ethers will be blocked.
      */
-    function depositEther() external payable onlyOwner{
+    function depositEther() external payable onlyOwner {
         require(msg.value != 0, "Error : 'Amount' , equal to 0");
     }
 
@@ -279,10 +277,7 @@ contract AirDrop is EIP712 {
      */
     function withdrawTokens() external onlyOwner {
         uint256 balance = token.balanceOf(address(this));
-        require(
-            balance > 0,
-            "Error : No availabale tokens to withdraw"
-        );
+        require(balance > 0, "Error : No availabale tokens to withdraw");
         emit WithdrawTokens(balance, msg.sender);
         token.safeTransfer(msg.sender, balance);
     }

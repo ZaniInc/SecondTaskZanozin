@@ -89,7 +89,7 @@ contract("AirDrop", async ([owner, acc2, acc3, acc4]) => {
             s = '0x' + sig0.substring(64, 128);
             v = parseInt(sig0.substring(128, 130), 16);
 
-            console.log(r,s,v);
+            console.log(r, s, v);
 
             // const recovered = sigUtil.recoverTypedSignature_v4({
             //     data: msgParams,
