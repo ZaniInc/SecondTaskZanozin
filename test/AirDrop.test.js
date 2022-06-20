@@ -68,7 +68,6 @@ contract("AirDrop", async ([owner, acc2, acc3, acc4]) => {
                 r = '0x' + sig0.substring(0, 64);
                 s = '0x' + sig0.substring(64, 128);
                 v = parseInt(sig0.substring(128, 130), 16);
-                instanceAirDrop.ecre
             }
         });
 
