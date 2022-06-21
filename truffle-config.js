@@ -1,14 +1,14 @@
 const path = require("path");
-// const HDWalletProvider = require("@truffle/hdwallet-provider");
+const HDWalletProvider = require("@truffle/hdwallet-provider");
 // require("dotenv").config({path: "./.env"});
 // const AccountIndex = 0;
 
 module.exports = {
   networks: {
     development: {
-      port : 7545,
-      host : "127.0.0.1",
-      network_id : "5777"
+      port: 8545,
+      host: "127.0.0.1",
+      network_id: "*"
     }
     // goerli_infura : {
     //   provider : function () {
@@ -23,9 +23,9 @@ module.exports = {
     //   network_id: 3
     // }
   },
-  compilers : {
-    solc : {
-      version : "0.8.7"
+  compilers: {
+    solc: {
+      version: "0.8.7"
     }
   }
   // plugins:['truffle-plugin-verify'] ,

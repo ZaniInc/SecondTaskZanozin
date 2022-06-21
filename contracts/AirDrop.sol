@@ -5,6 +5,7 @@ pragma solidity 0.8.7;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/cryptography/draft-EIP712.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "../interfaces/IAirDrop.sol";
 
 /**
  * @title AirDrop
@@ -12,7 +13,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
  * @notice This smart contract is for send free tokens to loyal
  * members of crypto-project
  */
-contract AirDrop is EIP712 {
+contract AirDrop is EIP712, IAirDrop {
     using SafeERC20 for IERC20;
 
     /**
@@ -34,93 +35,6 @@ contract AirDrop is EIP712 {
     IERC20 public token;
 
     /**
-     * @dev 'DepositTokens' info about success transfer from owner to SC
-     * @notice used in function 'depositTokens'
-     *
-     * @param amount - how many tokens will deposit to contract balance
-     */
-    event DepositTokens(uint256 amount);
-
-    /**
-     * @dev 'DepositEther' info about success transfer from owner to SC
-     * @notice used in function 'depositEther'
-     *
-     * @param amount - how many ether will deposit to contract balance
-     */
-    event DepositEther(uint256 amount);
-
-    /**
-     * @dev 'DropTokens' return how many tokens will be
-     * available for member
-     * @notice used in function 'dropTokens'
-     *
-     * @param recepient - address of receiver
-     * @param amount - how many tokens will send to member
-     * @param deadline - how many times member have to collect tokens
-     */
-    event DropTokens(address recepient, uint256 amount, uint256 deadline);
-
-    /**
-     * @dev 'DropEther' return how many ether will be
-     * available for member
-     * @notice used in function 'dropEther'
-     *
-     * @param recepient - address of receiver
-     * @param amount - how many ether will send to member
-     * @param deadline - how many times member have to collect ether
-     */
-    event DropEther(address recepient, uint256 amount, uint256 deadline);
-
-    /**
-     * @dev 'NewContractAddress' inform about new ERC20 address
-     * which connect to 'AirDrop'
-     * @notice used in function 'updateTokenAddress'
-     *
-     * @param newContract - address of new ERC20 contract
-     */
-    event NewContractAddress(address newContract);
-
-    /**
-     * @dev 'WithdrawEther' inform how many ether
-     * return to owner balance
-     * @notice used in function 'withdrawEther'
-     *
-     * @param to - address of owner
-     * @param amount - how many ether will back to owner
-     */
-    event WithdrawEther(uint256 amount, address to);
-
-    /**
-     * @dev 'WithdrawTokens' inform how many tokens
-     * return to owner balance
-     * @notice used in function 'withdrawTokens'
-     *
-     * @param to - address of owner
-     * @param amount - how many tokens will back to owner
-     */
-    event WithdrawTokens(uint256 amount, address to);
-
-    /**
-     * @dev 'ClaimToken' return to member how many tokens
-     * he will receive after success transactions
-     * @notice used in function 'claimToken'
-     *
-     * @param to - address of member
-     * @param amount - how many tokens send to member
-     */
-    event ClaimToken(uint256 amount, address to);
-
-    /**
-     * @dev 'ClaimEther' return to member how many ethers
-     * he will receive after success transactions
-     * @notice used in function 'claimEther'
-     *
-     * @param to - address of member
-     * @param amount - how many ethers send to member
-     */
-    event ClaimEther(uint256 amount, address to);
-
-    /**
      * @dev modifier which contains conditions who's can call functions
      *
      * NOTE : if function have 'onlyOwner' thats mean call this function
@@ -138,7 +52,7 @@ contract AirDrop is EIP712 {
      *
      * @param token_ - of ERC20 contract
      */
-    constructor(address token_) EIP712("AirDrop", "3") {
+    constructor(address token_) EIP712("AirDrop", "1") {
         require(
             token_.code.length > 0,
             "Error : Incorrect address , only contract address"
@@ -155,7 +69,7 @@ contract AirDrop is EIP712 {
      * NOTE : this function use wrapper of safeERC20 library
      * check 'SafeERC20.sol' for more information
      */
-    function depositTokens(uint256 amount_) external onlyOwner {
+    function depositTokens(uint256 amount_) external override onlyOwner {
         require(amount_ != 0, "Error : 'Amount' , equal to 0");
         token.safeTransferFrom(msg.sender, address(this), amount_);
         emit DepositTokens(amount_);
@@ -166,8 +80,10 @@ contract AirDrop is EIP712 {
      *
      * NOTE : if you send ether to 0 address , ethers will be blocked.
      */
-    function depositEther() external payable onlyOwner {
+    function depositEther() external payable override onlyOwner {
         require(msg.value != 0, "Error : 'Amount' , equal to 0");
+        uint256 value = uint256(msg.value);
+        emit DepositEther(value);
     }
 
     /**
@@ -189,7 +105,7 @@ contract AirDrop is EIP712 {
         uint8 v_,
         bytes32 r_,
         bytes32 s_
-    ) external onlyOwner {
+    ) external override onlyOwner {
         require(
             amount_ != 0 && recepients_ != address(0) && deadline_ != 0,
             "Error :'recepients_' or 'amount_' or 'deadline_' equal to 0"
@@ -232,7 +148,7 @@ contract AirDrop is EIP712 {
         uint8 v_,
         bytes32 r_,
         bytes32 s_
-    ) external onlyOwner {
+    ) external override onlyOwner {
         require(
             amount_ != 0 && recepients_ != address(0) && deadline_ != 0,
             "Error :'recepients_' or 'amount_' or 'deadline_' equal to 0"
@@ -242,14 +158,12 @@ contract AirDrop is EIP712 {
         );
         bytes32 digest = _hashTypedDataV4(structHash);
 
-        require(
-            _owner == ECDSA.recover(digest, v_, r_, s_),
-            "invalid signature"
-        );
-        require(
-            block.timestamp < deadline_,
-            "MyFunction: signed transaction expired"
-        );
+        // address msgSigner = ECDSA.recover(digest, v_, r_, s_);
+        // require(_owner == msgSigner, "invalid signature");
+        // require(
+        //     block.timestamp < deadline_,
+        //     "MyFunction: signed transaction expired"
+        // );
 
         balanceOfEther[recepients_] += amount_;
         emit DropEther(recepients_, amount_, deadline_);
@@ -261,7 +175,7 @@ contract AirDrop is EIP712 {
      * @param token_ - address of new ERC20 which connected
      * to 'this' contract
      */
-    function updateTokenAddress(address token_) external onlyOwner {
+    function updateTokenAddress(address token_) external override onlyOwner {
         require(
             token_.code.length > 0,
             "Error : Incorrect address , only contract address"
@@ -275,7 +189,7 @@ contract AirDrop is EIP712 {
      *
      * NOTE: withdraw all available tokens
      */
-    function withdrawTokens() external onlyOwner {
+    function withdrawTokens() external override onlyOwner {
         uint256 balance = token.balanceOf(address(this));
         require(balance > 0, "Error : No availabale tokens to withdraw");
         emit WithdrawTokens(balance, msg.sender);
@@ -287,7 +201,7 @@ contract AirDrop is EIP712 {
      *
      * NOTE: withdraw all available ether
      */
-    function withdrawEther() external onlyOwner {
+    function withdrawEther() external override onlyOwner {
         require(
             address(this).balance > 0,
             "Error : No availabale ether to withdraw"
@@ -303,7 +217,7 @@ contract AirDrop is EIP712 {
      * NOTE: withdraw all available tokens , you can call
      * this function only if you have available tokens
      */
-    function claimToken() external {
+    function claimToken() external override {
         address member = msg.sender;
         uint256 amountOfTokens = balanceOfTokens[member];
         require(amountOfTokens > 0, "No availabale tokens to claim");
@@ -319,7 +233,7 @@ contract AirDrop is EIP712 {
      * NOTE: withdraw all available ether , you can call
      * this function only if you have available ether
      */
-    function claimEther() external {
+    function claimEther() external override {
         address member = msg.sender;
         uint256 amountOfEther = balanceOfEther[member];
         require(amountOfEther > 0, "No availabale ether to claim");

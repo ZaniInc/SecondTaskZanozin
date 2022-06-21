@@ -9,24 +9,9 @@ const {
     expectRevert, // Assertions for transactions that should fail
 } = require('@openzeppelin/test-helpers');
 
-const sigUtil = require('@metamask/eth-sig-util');
-
 const chai = require("./setupChai.js");
 const BN = web3.utils.BN;
 const expect = chai.expect;
-const domains = require('./utils.js');
-
-// const domain = [
-//     { name: "name", type: "string" },
-//     { name: "version", type: "string" },
-//     { name: "chainId", type: "uint256" },
-//     { name: "verifyingContract", type: "address" }
-// ];
-// const Drop = [
-//     { name: "recepient", type: "address" },
-//     { name: "amount", type: "uint256" },
-//     { name: "deadline", type: "uint256" },
-// ];
 
 const netId = web3.eth.getChainId();
 
@@ -36,121 +21,83 @@ contract("AirDrop", async ([owner, acc2, acc3, acc4]) => {
     let instanceTokenn;
     let instanceAirDrop;
 
-    recover = async () => {
+    signTypedData = function (from, data) {
+        return new Promise(async (resolve, reject) => {
+            function cb(err, result) {
+                if (err) {
+                    return reject(err)
+                }
+                if (result.error) {
+                    return reject(result.error)
+                }
+
+                const sig = result.result
+                const sig0 = sig.substring(2)
+                const r = '0x' + sig0.substring(0, 64)
+                const s = '0x' + sig0.substring(64, 128)
+                const v = parseInt(sig0.substring(128, 130), 16)
+
+                resolve({
+                    data,
+                    sig,
+                    v,
+                    r,
+                    s,
+                })
+            }
+            web3.currentProvider.send(
+                {
+                    jsonrpc: '2.0',
+                    method: 'eth_signTypedData_v4',
+                    params: [from, data],
+                    id: new Date().getTime(),
+                },
+                cb
+            )
+        })
+    }
+
+    signVerification = async (recepient, amount, deadline) => {
         const domain = [
-            { name: "name", type: "string" },
-            { name: "version", type: "string" },
-            { name: "chainId", type: "uint256" },
-            { name: "verifyingContract", type: "address" }
-        ];
+            { name: 'name', type: 'string' },
+            { name: 'version', type: 'string' },
+            { name: 'chainId', type: 'uint256' },
+            { name: 'verifyingContract', type: 'address' },
+        ]
         const Drop = [
-            { name: "recepient", type: "address" },
-            { name: "amount", type: "uint256" },
-            { name: "deadline", type: "uint256" },
-        ];
-
-        const netId = await web3.eth.getChainId();
-
+            { name: 'recepient', type: 'address' },
+            { name: 'amount', type: 'uint256' },
+            { name: 'deadline', type: 'uint256' },
+        ]
+        const netId = await web3.eth.getChainId()
         const domainData = {
             name: "AirDrop",
             version: "1",
-            chainId: netId,
-            verifyingContract: instanceAirDrop.address
-        };
-
-        var message = {
-            recepient: acc2.address,
-            amount: new BN(30),
-            deadline: new BN(30)
+            chainId: new BN(netId),
+            verifyingContract: instanceAirDrop.address,
         }
-
-        const msgParams = JSON.stringify({
+        var message = {
+            recepient: recepient,
+            amount: amount,
+            deadline: deadline,
+        }
+        let msgParams = {
             types: {
                 EIP712Domain: domain,
-                Drop: Drop
+                Drop: Drop,
             },
             domain: domainData,
-            primaryType: "Drop",
-            message: message
-        });
-        console.log(msgParams);
-
-        await web3.currentProvider.send({
-            method: 'eth_signTypedData_v4',
-            params: [owner.address, msgParams],
-            from: owner,
-        }, async function () {
-            var signature = await web3.eth.sign(msgParams, owner);
-            // signature = signature.substr(0, 130) + (signature.substr(130) == "00" ? "1b" : "1c");
-            // console.log(signature);
-            // const sig = sign;
-            const sig0 = signature.substring(2);
-            r = '0x' + sig0.substring(0, 64);
-            s = '0x' + sig0.substring(64, 128);
-            v = parseInt(sig0.substring(128, 130), 16);
-
-            console.log(r, s, v);
-
-            // const recovered = sigUtil.recoverTypedSignature_v4({
-            //     data: msgParams,
-            //     sig: signature,
-            // });
-        });
-
+            primaryType: 'Drop',
+            message: message,
+        }
+        let sign = await signTypedData(owner, msgParams)
+        return sign
     }
 
     before(async () => {
         instanceToken = await MyToken.deployed();
         instanceTokenn = await MyTokenn.deployed();
         instanceAirDrop = await AirDrop.deployed();
-
-        // const netId = await web3.eth.getChainId();
-
-        // const domainData = { name: "AirDrop", version: "1", chainId: netId, verifyingContract: instanceAirDrop.address };
-        // var message = {
-        //     recepient: acc2.address,
-        //     amount: new BN(30),
-        //     deadline: new BN(30)
-        // }
-
-        // const msgParams = JSON.stringify({
-        //     types: {
-        //         EIP712Domain: domain,
-        //         Drop: Drop
-        //     },
-        //     domain: domainData,
-        //     primaryType: "Drop",
-        //     message: message
-        // });
-
-        // await web3.currentProvider.send({
-        //     method: 'eth_signTypedData_v4',
-        //     params: [owner.address, msgParams],
-        //     from: owner,
-        // });
-
-        // var signature = await web3.eth.sign(msgParams, owner);
-        // signature = signature.substr(0, 130) + (signature.substr(130) == "00" ? "1b" : "1c");
-
-        // const recovered = sigUtil.recoverTypedSignature_v4({
-        //     data: msgParams,
-        //     sig: signature,
-        // });
-        // console.log(recovered);
-        // let sign = await web3.currentProvider.send({
-        //     method: 'eth_signTypedData_v4',
-        //     params: [owner.address, msgParams],
-        //     from: owner,
-        // });
-        // console.log(sign);
-        //         // // const sig = sign;
-        //         // const sig0 = sign.substring(2);
-        //         // r = '0x' + sig0.substring(0, 64);
-        //         // s = '0x' + sig0.substring(64, 128);
-        //         // v = parseInt(sig0.substring(128, 130), 16);
-
-        // recover();
-
     });
 
 
@@ -182,7 +129,6 @@ contract("AirDrop", async ([owner, acc2, acc3, acc4]) => {
                 expect(await instanceToken.balanceOf(instanceAirDrop.address)).to.be.bignumber.equal(ether('5'));
                 expect(await instanceToken.balanceOf(owner)).to.be.bignumber.equal(ether('95'));
                 await expectEvent(tx, "DepositTokens", { amount: ether('5') });
-                recover();
             });
         });
     });
@@ -207,19 +153,26 @@ contract("AirDrop", async ([owner, acc2, acc3, acc4]) => {
                 expect(await web3.eth.getBalance(instanceAirDrop.address)).to.be.bignumber.equal(ether('0'));
                 let tx = await instanceAirDrop.depositEther({ from: owner, value: web3.utils.toWei("1", "ether") });
                 expect(await web3.eth.getBalance(instanceAirDrop.address)).to.be.bignumber.equal(ether('1'));
-                // await expectEvent(tx,"DepositEther",{amount : web3.utils.toWei("1", "ether")});
+                await expectEvent(tx, "DepositEther", { amount: ether('1') });
             });
         });
     });
 
-    // describe("dropEther", async () => {
+    describe("dropEther", async () => {
 
-    //     it("Drop tokens from contract to users", async () => {
-    //         // expect(await instanceToken.balanceOf(instanceAirDrop.address)).to.be.bignumber.equal(ether('1'));
+        it("Drop ether from contract to users", async () => {
+            // expect(await instanceToken.balanceOf(instanceAirDrop.address)).to.be.bignumber.equal(ether('1'));
+            let recepient = acc2;
+            let amount = new BN(10);
+            let deadline = new BN(10);
 
-    //         await instanceAirDrop.dropEther(recepient, amount, deadline, v, r, s);
-    //     });
-    // });
+            let sign = await signVerification(recepient, amount, deadline, { from: owner });
+            console.log(sign);
+            console.log(recepient);
+            let test = await instanceAirDrop.dropEther(recepient, amount, deadline, new BN(sign.v), sign.r, sign.s, { from: owner });
+            console.log(test);
+        });
+    });
 
 
     // describe("dropTokens", async () => {
