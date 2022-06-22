@@ -28,7 +28,7 @@ contract AirDrop is EIP712, IAirDrop {
      * @notice 'DROP_HASH' is signature of primaryType 'Drop'
      */
     bytes32 public constant DROP_HASH =
-        keccak256("Drop(address recepient,uint256 amount, uint256 deadline)");
+        keccak256("Drop(uint256 amount,uint256 deadline,address recepient)");
 
     address private _owner;
 
@@ -111,17 +111,15 @@ contract AirDrop is EIP712, IAirDrop {
             "Error :'recepients_' or 'amount_' or 'deadline_' equal to 0"
         );
         bytes32 structHash = keccak256(
-            abi.encode(DROP_HASH, recepients_, amount_, deadline_)
+            abi.encode(DROP_HASH, amount_, deadline_, recepients_)
         );
-        bytes32 digest = _hashTypedDataV4(structHash);
+        bytes32 digest = EIP712._hashTypedDataV4(structHash);
 
-        require(
-            _owner == ECDSA.recover(digest, v_, r_, s_),
-            "invalid signature"
-        );
+        address msgSigner = ECDSA.recover(digest, v_, r_, s_);
+        require(_owner == msgSigner, "invalid signature");
         require(
             block.timestamp < deadline_,
-            "MyFunction: signed transaction expired"
+            "Error : signed transaction expired"
         );
 
         balanceOfTokens[recepients_] += amount_;
@@ -154,16 +152,16 @@ contract AirDrop is EIP712, IAirDrop {
             "Error :'recepients_' or 'amount_' or 'deadline_' equal to 0"
         );
         bytes32 structHash = keccak256(
-            abi.encode(DROP_HASH, recepients_, amount_, deadline_)
+            abi.encode(DROP_HASH, amount_, deadline_, recepients_)
         );
-        bytes32 digest = _hashTypedDataV4(structHash);
+        bytes32 digest = EIP712._hashTypedDataV4(structHash);
 
-        // address msgSigner = ECDSA.recover(digest, v_, r_, s_);
-        // require(_owner == msgSigner, "invalid signature");
-        // require(
-        //     block.timestamp < deadline_,
-        //     "MyFunction: signed transaction expired"
-        // );
+        address msgSigner = ECDSA.recover(digest, v_, r_, s_);
+        require(_owner == msgSigner, "invalid signature");
+        require(
+            block.timestamp < deadline_,
+            "Error : signed transaction expired"
+        );
 
         balanceOfEther[recepients_] += amount_;
         emit DropEther(recepients_, amount_, deadline_);
@@ -220,7 +218,7 @@ contract AirDrop is EIP712, IAirDrop {
     function claimToken() external override {
         address member = msg.sender;
         uint256 amountOfTokens = balanceOfTokens[member];
-        require(amountOfTokens > 0, "No availabale tokens to claim");
+        require(amountOfTokens > 0, "Error : No available tokens to claim");
         balanceOfTokens[member] -= amountOfTokens;
         token.safeTransfer(member, amountOfTokens);
         emit ClaimToken(amountOfTokens, member);
@@ -236,7 +234,7 @@ contract AirDrop is EIP712, IAirDrop {
     function claimEther() external override {
         address member = msg.sender;
         uint256 amountOfEther = balanceOfEther[member];
-        require(amountOfEther > 0, "No availabale ether to claim");
+        require(amountOfEther > 0, "Error : No available ether to claim");
         balanceOfEther[member] -= amountOfEther;
         payable(member).transfer(amountOfEther);
         emit ClaimEther(amountOfEther, member);

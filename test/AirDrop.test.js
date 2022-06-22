@@ -8,12 +8,11 @@ const {
     expectEvent,  // Assertions for emitted events
     expectRevert, // Assertions for transactions that should fail
 } = require('@openzeppelin/test-helpers');
+const { web3 } = require('@openzeppelin/test-helpers/src/setup.js');
 
 const chai = require("./setupChai.js");
 const BN = web3.utils.BN;
 const expect = chai.expect;
-
-const netId = web3.eth.getChainId();
 
 contract("AirDrop", async ([owner, acc2, acc3, acc4]) => {
 
@@ -45,19 +44,17 @@ contract("AirDrop", async ([owner, acc2, acc3, acc4]) => {
                     s,
                 })
             }
-            web3.currentProvider.send(
+            await web3.currentProvider.send(
                 {
-                    jsonrpc: '2.0',
                     method: 'eth_signTypedData_v4',
                     params: [from, data],
-                    id: new Date().getTime(),
                 },
                 cb
             )
         })
     }
 
-    signVerification = async (recepient, amount, deadline) => {
+    signVerification = async (amount_, deadline_, recepient_, caller) => {
         const domain = [
             { name: 'name', type: 'string' },
             { name: 'version', type: 'string' },
@@ -65,21 +62,21 @@ contract("AirDrop", async ([owner, acc2, acc3, acc4]) => {
             { name: 'verifyingContract', type: 'address' },
         ]
         const Drop = [
-            { name: 'recepient', type: 'address' },
             { name: 'amount', type: 'uint256' },
             { name: 'deadline', type: 'uint256' },
+            { name: 'recepient', type: 'address' },
         ]
         const netId = await web3.eth.getChainId()
-        const domainData = {
+        let domainData = {
             name: "AirDrop",
             version: "1",
-            chainId: new BN(netId),
+            chainId: netId,
             verifyingContract: instanceAirDrop.address,
         }
         var message = {
-            recepient: recepient,
-            amount: amount,
-            deadline: deadline,
+            amount: amount_,
+            deadline: deadline_,
+            recepient: recepient_,
         }
         let msgParams = {
             types: {
@@ -90,7 +87,7 @@ contract("AirDrop", async ([owner, acc2, acc3, acc4]) => {
             primaryType: 'Drop',
             message: message,
         }
-        let sign = await signTypedData(owner, msgParams)
+        let sign = await signTypedData(caller, msgParams)
         return sign
     }
 
@@ -151,83 +148,155 @@ contract("AirDrop", async ([owner, acc2, acc3, acc4]) => {
         describe("depositEther - done", async () => {
             it("call 'depositEther' function - done ", async () => {
                 expect(await web3.eth.getBalance(instanceAirDrop.address)).to.be.bignumber.equal(ether('0'));
-                let tx = await instanceAirDrop.depositEther({ from: owner, value: web3.utils.toWei("1", "ether") });
-                expect(await web3.eth.getBalance(instanceAirDrop.address)).to.be.bignumber.equal(ether('1'));
-                await expectEvent(tx, "DepositEther", { amount: ether('1') });
+                let tx = await instanceAirDrop.depositEther({ from: owner, value: web3.utils.toWei("10", "ether") });
+                expect(await web3.eth.getBalance(instanceAirDrop.address)).to.be.bignumber.equal(ether('10'));
+                await expectEvent(tx, "DepositEther", { amount: ether('10') });
             });
         });
     });
 
     describe("dropEther", async () => {
 
-        it("Drop ether from contract to users", async () => {
-            // expect(await instanceToken.balanceOf(instanceAirDrop.address)).to.be.bignumber.equal(ether('1'));
-            let recepient = acc2;
-            let amount = new BN(10);
-            let deadline = new BN(10);
+        describe("dropEther - false", async () => {
+            it("call 'dropEther' function - false (caller not owner)", async () => {
+                const currentBlock = await web3.eth.getBlock("latest");
+                let time = new BN(currentBlock.timestamp);
+                let newTime = time.add(new BN(60)).toString();
+                let sign = await signVerification(web3.utils.toWei("1", "ether"), newTime, acc2, owner);
+                await expectRevert(instanceAirDrop.dropEther(acc2, web3.utils.toWei("1", "ether"), newTime, sign.v, sign.r, sign.s, { from: acc2 }), "Error : caller is not the owner");
+            });
 
-            let sign = await signVerification(recepient, amount, deadline, { from: owner });
-            console.log(sign);
-            console.log(recepient);
-            let test = await instanceAirDrop.dropEther(recepient, amount, deadline, new BN(sign.v), sign.r, sign.s, { from: owner });
-            console.log(test);
+            it("call 'dropEther' function - false (signed transaction expired)", async () => {
+                const currentBlock = await web3.eth.getBlock("latest");
+                let time = new BN(currentBlock.timestamp);
+                let newTime = time.add(new BN(0)).toString();
+                let sign = await signVerification(web3.utils.toWei("1", "ether"), newTime, acc2, owner);
+                await expectRevert(instanceAirDrop.dropEther(acc2, web3.utils.toWei("1", "ether"), newTime, sign.v, sign.r, sign.s), "Error : signed transaction expired");
+            });
+
+            it("call 'dropEther' function - false (invalid signature not owner)", async () => {
+                const currentBlock = await web3.eth.getBlock("latest");
+                let time = new BN(currentBlock.timestamp);
+                let newTime = time.add(new BN(60)).toString();
+                let sign = await signVerification(web3.utils.toWei("1", "ether"), newTime, acc2, acc2);
+                await expectRevert(instanceAirDrop.dropEther(acc2, web3.utils.toWei("1", "ether"), newTime, sign.v, sign.r, sign.s), "invalid signature");
+            });
+        });
+
+        describe("dropEther - done", async () => {
+            it("call 'dropEther' function - done", async () => {
+                const currentBlock = await web3.eth.getBlock("latest");
+                let time = new BN(currentBlock.timestamp);
+                let newTime = time.add(new BN(60)).toString();
+                let sign = await signVerification(web3.utils.toWei("1", "ether"), newTime, acc3, owner);
+                let tx = await instanceAirDrop.dropEther(acc3, web3.utils.toWei("1", "ether"), newTime, sign.v, sign.r, sign.s);
+                await expectEvent(tx, "DropEther", { recepient: acc3, amount: web3.utils.toWei("1", "ether"), deadline: newTime });
+            });
         });
     });
 
 
-    // describe("dropTokens", async () => {
+    describe("dropTokens", async () => {
 
-    //     it("Drop tokens from contract to users", async () => {
-    //         expect(await instanceToken.balanceOf(instanceAirDrop.address)).to.be.bignumber.equal(ether('5'));
+        describe("dropTokens - false", async () => {
+            it("call 'dropTokens' function - false (caller not owner)", async () => {
+                const currentBlock = await web3.eth.getBlock("latest");
+                let time = new BN(currentBlock.timestamp);
+                let newTime = time.add(new BN(60)).toString();
+                let sign = await signVerification(web3.utils.toWei("1", "ether"), newTime, acc2, owner);
+                await expectRevert(instanceAirDrop.dropTokens(acc2, web3.utils.toWei("1", "ether"), newTime, sign.v, sign.r, sign.s, { from: acc2 }), "Error : caller is not the owner");
+            });
 
-    //         await instanceAirDrop.dropTokens(acc2,1,1);
-    //     });
-    // });
+            it("call 'dropTokens' function - false (signed transaction expired)", async () => {
+                const currentBlock = await web3.eth.getBlock("latest");
+                let time = new BN(currentBlock.timestamp);
+                let newTime = time.add(new BN(0)).toString();
+                let sign = await signVerification(web3.utils.toWei("1", "ether"), newTime, acc2, owner);
+                await expectRevert(instanceAirDrop.dropTokens(acc2, web3.utils.toWei("1", "ether"), newTime, sign.v, sign.r, sign.s), "Error : signed transaction expired");
+            });
+
+            it("call 'dropTokens' function - false (invalid signature not owner)", async () => {
+                const currentBlock = await web3.eth.getBlock("latest");
+                let time = new BN(currentBlock.timestamp);
+                let newTime = time.add(new BN(60)).toString();
+                let sign = await signVerification(web3.utils.toWei("1", "ether"), newTime, acc2, acc2);
+                await expectRevert(instanceAirDrop.dropTokens(acc2, web3.utils.toWei("1", "ether"), newTime, sign.v, sign.r, sign.s), "invalid signature");
+            });
+
+        });
+
+        describe("dropTokens - done", async () => {
+            it("call 'dropTokens' function - done", async () => {
+                const currentBlock = await web3.eth.getBlock("latest");
+                let time = new BN(currentBlock.timestamp);
+                let newTime = time.add(new BN(60)).toString();
+                let sign = await signVerification(web3.utils.toWei("1", "ether"), newTime, acc2, owner);
+                let tx = await instanceAirDrop.dropTokens(acc2, web3.utils.toWei("1", "ether"), newTime, sign.v, sign.r, sign.s);
+                await expectEvent(tx, "DropTokens", { recepient: acc2, amount: web3.utils.toWei("1", "ether"), deadline: newTime });
+            });
+        });
+    });
+
+    describe("claimToken", async () => {
+        it("call 'claimToken' function - false (No availabale tokens to claim)", async () => {
+            expect(await web3.eth.getBalance(instanceAirDrop.address)).to.be.bignumber.equal(ether('10'));
+            await expectRevert(instanceAirDrop.claimToken({ from: owner }), "Error : No available tokens to claim");
+            expect(await web3.eth.getBalance(instanceAirDrop.address)).to.be.bignumber.equal(ether('10'));
+        });
+
+        it("call 'claimToken' function - done", async () => {
+            expect(await instanceToken.balanceOf(acc2)).to.be.bignumber.equal(ether('0'));
+            expect(await instanceToken.balanceOf(instanceAirDrop.address)).to.be.bignumber.equal(ether('5'));
+            await instanceAirDrop.claimToken({ from: acc2 });
+            expect(await instanceToken.balanceOf(instanceAirDrop.address)).to.be.bignumber.equal(ether('4'));
+            expect(await instanceToken.balanceOf(acc2)).to.be.bignumber.equal(ether('1'));
+        });
+    });
+
+    describe("claimEther", async () => {
+        it("call 'claimEther' function - false (No availabale ether to claim)", async () => {
+            expect(await web3.eth.getBalance(instanceAirDrop.address)).to.be.bignumber.equal(ether('10'));
+            await expectRevert(instanceAirDrop.claimEther({ from: owner }), "Error : No available ether to claim");
+            expect(await web3.eth.getBalance(instanceAirDrop.address)).to.be.bignumber.equal(ether('10'));
+        });
+
+        it("call 'claimEther' function - done", async () => {
+            expect(await web3.eth.getBalance(instanceAirDrop.address)).to.be.bignumber.equal(ether('10'));
+            await instanceAirDrop.claimEther({ from: acc3 });
+        });
+    });
 
     describe("withdrawTokens", async () => {
         it("call 'withdrawTokens' function - false (caller not owner)", async () => {
             expect(await instanceToken.balanceOf(owner)).to.be.bignumber.equal(ether('95'));
-            expect(await instanceToken.balanceOf(instanceAirDrop.address)).to.be.bignumber.equal(ether('5'));
+            expect(await instanceToken.balanceOf(instanceAirDrop.address)).to.be.bignumber.equal(ether('4'));
             await expectRevert(instanceAirDrop.withdrawTokens({ from: acc2 }), "Error : caller is not the owner");
             expect(await instanceToken.balanceOf(owner)).to.be.bignumber.equal(ether('95'));
-            expect(await instanceToken.balanceOf(instanceAirDrop.address)).to.be.bignumber.equal(ether('5'));
+            expect(await instanceToken.balanceOf(instanceAirDrop.address)).to.be.bignumber.equal(ether('4'));
         });
 
         it("call 'withdrawTokens' function - done", async () => {
             expect(await instanceToken.balanceOf(owner)).to.be.bignumber.equal(ether('95'));
-            expect(await instanceToken.balanceOf(instanceAirDrop.address)).to.be.bignumber.equal(ether('5'));
+            expect(await instanceToken.balanceOf(instanceAirDrop.address)).to.be.bignumber.equal(ether('4'));
             let tx = await instanceAirDrop.withdrawTokens();
-            expect(await instanceToken.balanceOf(owner)).to.be.bignumber.equal(ether('100'));
+            expect(await instanceToken.balanceOf(owner)).to.be.bignumber.equal(ether('99'));
             expect(await instanceToken.balanceOf(instanceAirDrop.address)).to.be.bignumber.equal(ether('0'));
-            await expectEvent(tx, "WithdrawTokens", { amount: ether('5'), to: owner });
+            await expectEvent(tx, "WithdrawTokens", { amount: ether('4'), to: owner });
         });
     });
 
     describe("withdrawEther", async () => {
         it("call 'withdrawEther' function - false (caller not owner)", async () => {
-            expect(await web3.eth.getBalance(instanceAirDrop.address)).to.be.bignumber.equal(ether('1'));
+            expect(await web3.eth.getBalance(instanceAirDrop.address)).to.be.bignumber.equal(ether('9'));
             await expectRevert(instanceAirDrop.withdrawEther({ from: acc2 }), "Error : caller is not the owner");
-            expect(await web3.eth.getBalance(instanceAirDrop.address)).to.be.bignumber.equal(ether('1'));
+            expect(await web3.eth.getBalance(instanceAirDrop.address)).to.be.bignumber.equal(ether('9'));
         });
-
 
         it("call 'withdrawEther' function - done", async () => {
-            expect(await web3.eth.getBalance(instanceAirDrop.address)).to.be.bignumber.equal(ether('1'));
+            expect(await web3.eth.getBalance(instanceAirDrop.address)).to.be.bignumber.equal(ether('9'));
             let tx = await instanceAirDrop.withdrawEther();
             expect(await web3.eth.getBalance(instanceAirDrop.address)).to.be.bignumber.equal(ether('0'));
-            await expectEvent(tx, "WithdrawEther", { amount: ether('1'), to: owner });
-        });
-    });
-
-    describe("claimToken", async () => {
-
-        it("send tokens from SC to acc2", async () => {
-        });
-    });
-
-    describe("claimEther", async () => {
-
-        it("send ether from SC to acc2", async () => {
+            await expectEvent(tx, "WithdrawEther", { amount: ether('9'), to: owner });
         });
     });
 
