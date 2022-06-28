@@ -28,7 +28,7 @@ interface IAirDrop {
      * @param amount - how many tokens will send to member
      * @param deadline - how many times member have to collect tokens
      */
-    event DropTokens(address recepient, uint256 amount, uint256 deadline);
+    event DropTokens(address[] recepient, uint256[] amount, uint256 deadline);
 
     /**
      * @dev 'DropEther' return how many ether will be
@@ -39,7 +39,7 @@ interface IAirDrop {
      * @param amount - how many ether will send to member
      * @param deadline - how many times member have to collect ether
      */
-    event DropEther(address recepient, uint256 amount, uint256 deadline);
+    event DropEther(address[] recepient, uint256[] amount, uint256 deadline);
 
     /**
      * @dev 'NewContractAddress' inform about new ERC20 address
@@ -58,7 +58,7 @@ interface IAirDrop {
      * @param to - address of owner
      * @param amount - how many ether will back to owner
      */
-    event WithdrawEther(uint256 amount, address to);
+    event WithdrawEther(address to, uint256 amount);
 
     /**
      * @dev 'WithdrawTokens' inform how many tokens
@@ -68,7 +68,7 @@ interface IAirDrop {
      * @param to - address of owner
      * @param amount - how many tokens will back to owner
      */
-    event WithdrawTokens(uint256 amount, address to);
+    event WithdrawTokens(address to, uint256 amount);
 
     /**
      * @dev 'ClaimToken' return to member how many tokens
@@ -78,7 +78,7 @@ interface IAirDrop {
      * @param to - address of member
      * @param amount - how many tokens send to member
      */
-    event ClaimToken(uint256 amount, address to);
+    event ClaimToken(address to, uint256 amount);
 
     /**
      * @dev 'ClaimEther' return to member how many ethers
@@ -88,7 +88,7 @@ interface IAirDrop {
      * @param to - address of member
      * @param amount - how many ethers send to member
      */
-    event ClaimEther(uint256 amount, address to);
+    event ClaimEther(address to, uint256 amount);
 
     /**
      * @dev send ERC20 tokens from 'owner_' balance to SC
@@ -117,8 +117,8 @@ interface IAirDrop {
      *
      */
     function dropTokens(
-        address recepients_,
-        uint256 amount_,
+        address[] calldata recepients_,
+        uint256[] calldata amount_,
         uint256 deadline_,
         uint8 v_,
         bytes32 r_,
@@ -137,8 +137,8 @@ interface IAirDrop {
      *
      */
     function dropEther(
-        address recepients_,
-        uint256 amount_,
+        address[] calldata recepients_,
+        uint256[] calldata amount_,
         uint256 deadline_,
         uint8 v_,
         bytes32 r_,

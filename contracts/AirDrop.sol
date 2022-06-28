@@ -4,6 +4,8 @@ pragma solidity 0.8.7;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/cryptography/draft-EIP712.sol";
+import "@openzeppelin/contracts/utils/Address.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../interfaces/IAirDrop.sol";
 
@@ -13,8 +15,9 @@ import "../interfaces/IAirDrop.sol";
  * @notice This smart contract is for send free tokens to loyal
  * members of crypto-project
  */
-contract AirDrop is EIP712, IAirDrop {
+contract AirDrop is EIP712, IAirDrop, Ownable {
     using SafeERC20 for IERC20;
+    using Address for address;
 
     /**
      * @dev Store balances of members
@@ -28,22 +31,9 @@ contract AirDrop is EIP712, IAirDrop {
      * @notice 'DROP_HASH' is signature of primaryType 'Drop'
      */
     bytes32 public constant DROP_HASH =
-        keccak256("Drop(uint256 amount,uint256 deadline,address recepient)");
-
-    address private _owner;
+        keccak256("Drop(uint256[] amount,uint256 deadline,address[] recepient,bool ether)");
 
     IERC20 public token;
-
-    /**
-     * @dev modifier which contains conditions who's can call functions
-     *
-     * NOTE : if function have 'onlyOwner' thats mean call this function
-     * can only address which contained in '_owner'
-     */
-    modifier onlyOwner() {
-        require(_owner == msg.sender, "Error : caller is not the owner");
-        _;
-    }
 
     /**
      * @dev Set 'token' IERC20 to interact with thrid party token
@@ -53,12 +43,8 @@ contract AirDrop is EIP712, IAirDrop {
      * @param token_ - of ERC20 contract
      */
     constructor(address token_) EIP712("AirDrop", "1") {
-        require(
-            token_.code.length > 0,
-            "Error : Incorrect address , only contract address"
-        );
+        Address.isContract(token_);
         token = IERC20(token_);
-        _owner = msg.sender;
     }
 
     /**
@@ -82,8 +68,7 @@ contract AirDrop is EIP712, IAirDrop {
      */
     function depositEther() external payable override onlyOwner {
         require(msg.value != 0, "Error : 'Amount' , equal to 0");
-        uint256 value = uint256(msg.value);
-        emit DepositEther(value);
+        emit DepositEther(msg.value);
     }
 
     /**
@@ -99,31 +84,36 @@ contract AirDrop is EIP712, IAirDrop {
      * NOTE : more information 'EIP712'
      */
     function dropTokens(
-        address recepients_,
-        uint256 amount_,
+        address[] calldata recepients_,
+        uint256[] calldata amount_,
         uint256 deadline_,
         uint8 v_,
         bytes32 r_,
         bytes32 s_
     ) external override onlyOwner {
         require(
-            amount_ != 0 && recepients_ != address(0) && deadline_ != 0,
-            "Error :'recepients_' or 'amount_' or 'deadline_' equal to 0"
+            recepients_.length == amount_.length ,
+            "Error : arrays have different length"
         );
         bytes32 structHash = keccak256(
-            abi.encode(DROP_HASH, amount_, deadline_, recepients_)
+            abi.encode(DROP_HASH, keccak256(abi.encodePacked(amount_)), deadline_,keccak256(abi.encodePacked(recepients_)),false)
         );
         bytes32 digest = EIP712._hashTypedDataV4(structHash);
 
         address msgSigner = ECDSA.recover(digest, v_, r_, s_);
-        require(_owner == msgSigner, "invalid signature");
+        require(msg.sender == msgSigner, "invalid signature");
         require(
             block.timestamp < deadline_,
             "Error : signed transaction expired"
         );
 
-        balanceOfTokens[recepients_] += amount_;
-        token.approve(recepients_, amount_);
+        for (uint256 i; i < recepients_.length; i++) {
+            require(
+                amount_[i] != 0 && recepients_[i] != address(0),
+                "Error :'recepients_' or 'amount_' equal to 0"
+            );
+            balanceOfTokens[recepients_[i]] += amount_[i];
+        }
         emit DropTokens(recepients_, amount_, deadline_);
     }
 
@@ -140,30 +130,35 @@ contract AirDrop is EIP712, IAirDrop {
      * NOTE : more information 'EIP712'
      */
     function dropEther(
-        address recepients_,
-        uint256 amount_,
+        address[] calldata recepients_,
+        uint256[] calldata amount_,
         uint256 deadline_,
         uint8 v_,
         bytes32 r_,
         bytes32 s_
     ) external override onlyOwner {
         require(
-            amount_ != 0 && recepients_ != address(0) && deadline_ != 0,
-            "Error :'recepients_' or 'amount_' or 'deadline_' equal to 0"
+            recepients_.length == amount_.length ,
+            "Error : arrays have different length"
         );
         bytes32 structHash = keccak256(
-            abi.encode(DROP_HASH, amount_, deadline_, recepients_)
+            abi.encode(DROP_HASH, keccak256(abi.encodePacked(amount_)), deadline_,keccak256(abi.encodePacked(recepients_)),true)
         );
         bytes32 digest = EIP712._hashTypedDataV4(structHash);
 
         address msgSigner = ECDSA.recover(digest, v_, r_, s_);
-        require(_owner == msgSigner, "invalid signature");
+        require(msg.sender == msgSigner, "invalid signature");
         require(
             block.timestamp < deadline_,
             "Error : signed transaction expired"
         );
-
-        balanceOfEther[recepients_] += amount_;
+        for (uint256 i; i < recepients_.length; i++) {
+            require(
+                amount_[i] != 0 && recepients_[i] != address(0),
+                "Error :'recepients_' or 'amount_' equal to 0"
+            );
+            balanceOfEther[recepients_[i]] += amount_[i];
+        }
         emit DropEther(recepients_, amount_, deadline_);
     }
 
@@ -174,10 +169,7 @@ contract AirDrop is EIP712, IAirDrop {
      * to 'this' contract
      */
     function updateTokenAddress(address token_) external override onlyOwner {
-        require(
-            token_.code.length > 0,
-            "Error : Incorrect address , only contract address"
-        );
+        require(Address.isContract(token_) == true,"Error : Incorrect address , only contract address");
         token = IERC20(token_);
         emit NewContractAddress(token_);
     }
@@ -190,8 +182,8 @@ contract AirDrop is EIP712, IAirDrop {
     function withdrawTokens() external override onlyOwner {
         uint256 balance = token.balanceOf(address(this));
         require(balance > 0, "Error : No availabale tokens to withdraw");
-        emit WithdrawTokens(balance, msg.sender);
         token.safeTransfer(msg.sender, balance);
+        emit WithdrawTokens(msg.sender, balance);
     }
 
     /**
@@ -204,8 +196,9 @@ contract AirDrop is EIP712, IAirDrop {
             address(this).balance > 0,
             "Error : No availabale ether to withdraw"
         );
-        emit WithdrawEther(address(this).balance, msg.sender);
-        payable(msg.sender).transfer(address(this).balance);
+        uint256 value = address(this).balance;
+        Address.sendValue(payable(msg.sender), address(this).balance);
+        emit WithdrawEther(msg.sender, value);
     }
 
     /**
@@ -217,11 +210,11 @@ contract AirDrop is EIP712, IAirDrop {
      */
     function claimToken() external override {
         address member = msg.sender;
-        uint256 amountOfTokens = balanceOfTokens[member];
-        require(amountOfTokens > 0, "Error : No available tokens to claim");
-        balanceOfTokens[member] -= amountOfTokens;
-        token.safeTransfer(member, amountOfTokens);
-        emit ClaimToken(amountOfTokens, member);
+        uint256 balance = balanceOfTokens[member];
+        require(balance > 0, "Error : No available tokens to claim");
+        balanceOfTokens[member] = 0;
+        token.safeTransfer(member, balance);
+        emit ClaimToken(member, balance);
     }
 
     /**
@@ -233,10 +226,10 @@ contract AirDrop is EIP712, IAirDrop {
      */
     function claimEther() external override {
         address member = msg.sender;
-        uint256 amountOfEther = balanceOfEther[member];
-        require(amountOfEther > 0, "Error : No available ether to claim");
-        balanceOfEther[member] -= amountOfEther;
-        payable(member).transfer(amountOfEther);
-        emit ClaimEther(amountOfEther, member);
+        uint256 balance = balanceOfEther[member];
+        require(balance > 0, "Error : No available ether to claim");
+        balanceOfEther[member] = 0;
+        Address.sendValue(payable(member), balance);
+        emit ClaimEther(member, balance);
     }
 }
