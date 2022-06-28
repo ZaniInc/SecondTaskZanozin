@@ -31,7 +31,9 @@ contract AirDrop is EIP712, IAirDrop, Ownable {
      * @notice 'DROP_HASH' is signature of primaryType 'Drop'
      */
     bytes32 public constant DROP_HASH =
-        keccak256("Drop(uint256[] amount,uint256 deadline,address[] recepient,bool ether)");
+        keccak256(
+            "Drop(uint256[] amount,uint256 deadline,address[] recepient,bool ether)"
+        );
 
     IERC20 public token;
 
@@ -92,11 +94,17 @@ contract AirDrop is EIP712, IAirDrop, Ownable {
         bytes32 s_
     ) external override onlyOwner {
         require(
-            recepients_.length == amount_.length ,
+            recepients_.length == amount_.length,
             "Error : arrays have different length"
         );
         bytes32 structHash = keccak256(
-            abi.encode(DROP_HASH, keccak256(abi.encodePacked(amount_)), deadline_,keccak256(abi.encodePacked(recepients_)),false)
+            abi.encode(
+                DROP_HASH,
+                keccak256(abi.encodePacked(amount_)),
+                deadline_,
+                keccak256(abi.encodePacked(recepients_)),
+                false
+            )
         );
         bytes32 digest = EIP712._hashTypedDataV4(structHash);
 
@@ -138,11 +146,17 @@ contract AirDrop is EIP712, IAirDrop, Ownable {
         bytes32 s_
     ) external override onlyOwner {
         require(
-            recepients_.length == amount_.length ,
+            recepients_.length == amount_.length,
             "Error : arrays have different length"
         );
         bytes32 structHash = keccak256(
-            abi.encode(DROP_HASH, keccak256(abi.encodePacked(amount_)), deadline_,keccak256(abi.encodePacked(recepients_)),true)
+            abi.encode(
+                DROP_HASH,
+                keccak256(abi.encodePacked(amount_)),
+                deadline_,
+                keccak256(abi.encodePacked(recepients_)),
+                true
+            )
         );
         bytes32 digest = EIP712._hashTypedDataV4(structHash);
 
@@ -169,7 +183,10 @@ contract AirDrop is EIP712, IAirDrop, Ownable {
      * to 'this' contract
      */
     function updateTokenAddress(address token_) external override onlyOwner {
-        require(Address.isContract(token_) == true,"Error : Incorrect address , only contract address");
+        require(
+            Address.isContract(token_) == true,
+            "Error : Incorrect address , only contract address"
+        );
         token = IERC20(token_);
         emit NewContractAddress(token_);
     }
