@@ -3,3 +3,4 @@ setUpProject
 .solhint.json
 truffle-config.js
 build
+.env
