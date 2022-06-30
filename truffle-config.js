@@ -9,16 +9,16 @@ module.exports = {
       port: 8545,
       host: "127.0.0.1",
       network_id: "*"
-    }
+    },
     goerli_infura : {
       provider : function () {
-        return new HDWalletProvider(process.env.MNEMONIC,"https://goerli.infura.io/v3/23b0f66c3c2b4d77ad961d2f97c04e44", AccountIndex);
+        return new HDWalletProvider(process.env.MNEMONIC,process.env.GOERLI, AccountIndex);
       },
       network_id: 5
     },
     ropsten_infura : {
       provider : function () {
-        return new HDWalletProvider(process.env.MNEMONIC,"wss://ropsten.infura.io/ws/v3/23b0f66c3c2b4d77ad961d2f97c04e44",AccountIndex);
+        return new HDWalletProvider(process.env.MNEMONIC,process.env.ROPSTEN,AccountIndex);
       },
       network_id: 3
     }
@@ -27,9 +27,9 @@ module.exports = {
     solc: {
       version: "0.8.7"
     }
-  }
+  },
   plugins:['truffle-plugin-verify'] ,
   api_keys :{
-    etherscan: 'HNYS8RTW749XT7W8VCZRH8SDV4YF2X7Y8T'
+    etherscan: process.env.API
   }
 };

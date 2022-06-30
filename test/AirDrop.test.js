@@ -67,7 +67,7 @@ contract("AirDrop", async ([owner, acc2, acc3, acc4]) => {
             { name: 'amount', type: 'uint256[]' },
             { name: 'deadline', type: 'uint256' },
             { name: 'recepient', type: 'address[]' },
-            { name: 'ether', type: 'bool' },
+            { name: 'isEther', type: 'bool' },
         ]
         const netId = await web3.eth.getChainId()
         let domainData = {
@@ -80,7 +80,7 @@ contract("AirDrop", async ([owner, acc2, acc3, acc4]) => {
             amount: amount_,
             deadline: deadline_,
             recepient: recepient_,
-            ether: ether_,
+            isEther: ether_,
         }
         let msgParams = {
             types: {
@@ -96,9 +96,10 @@ contract("AirDrop", async ([owner, acc2, acc3, acc4]) => {
     }
 
     before(async () => {
-        instanceToken = await MyToken.deployed();
-        instanceTokenn = await MyTokenn.deployed();
-        instanceAirDrop = await AirDrop.deployed();
+        instanceToken = await MyToken.new();
+        instanceTokenn = await MyTokenn.new();
+        await expectRevert(AirDrop.new(acc2), "Error : Incorrect address , only contract address");
+        instanceAirDrop = await AirDrop.new(instanceToken.address);
     });
 
 
@@ -137,29 +138,29 @@ contract("AirDrop", async ([owner, acc2, acc3, acc4]) => {
     describe("depositEther", async () => {
         describe("depositEther - false", async () => {
             it("call 'depositEther' function - false (amount = 0)", async () => {
-                expect(await web3.eth.getBalance(instanceAirDrop.address)).to.be.bignumber.equal(ether('0'));
+                expect(await balance.current(instanceAirDrop.address)).to.be.bignumber.equal(ether('0'));
                 await expectRevert(instanceAirDrop.depositEther({ from: owner, value: ether('0').toString() }), "Error : 'Amount' , equal to 0");
-                expect(await web3.eth.getBalance(instanceAirDrop.address)).to.be.bignumber.equal(ether('0'));
+                expect(await balance.current(instanceAirDrop.address)).to.be.bignumber.equal(ether('0'));
             });
 
             it("call 'depositEther'function - false (caller not owner)", async () => {
-                expect(await web3.eth.getBalance(instanceAirDrop.address)).to.be.bignumber.equal(ether('0'));
+                expect(await balance.current(instanceAirDrop.address)).to.be.bignumber.equal(ether('0'));
                 await expectRevert(instanceAirDrop.depositEther({ from: acc2, value: ether('1').toString() }), "Ownable: caller is not the owner");
-                expect(await web3.eth.getBalance(instanceAirDrop.address)).to.be.bignumber.equal(ether('0'));
+                expect(await balance.current(instanceAirDrop.address)).to.be.bignumber.equal(ether('0'));
             });
         });
 
         describe("depositEther - done", async () => {
             it("call 'depositEther' function - done ", async () => {
-                expect(await web3.eth.getBalance(instanceAirDrop.address)).to.be.bignumber.equal(ether('0'));
-                const balanceBefore = new BN(await web3.eth.getBalance(owner));
+                expect(await balance.current(instanceAirDrop.address)).to.be.bignumber.equal(ether('0'));
+                const balanceBefore = new BN(await balance.current(owner));
                 const tx = await instanceAirDrop.depositEther({ from: owner, value: ether('10').toString() });
-                const balanceAfter = new BN(await web3.eth.getBalance(owner));
+                const balanceAfter = new BN(await balance.current(owner));
                 const txx = await web3.eth.getTransaction(tx.tx);
                 const gasCost = new BN(txx.gasPrice).mul(new BN(tx.receipt.gasUsed));
                 balance2 = balanceAfter.add(gasCost).add(new BN(ether('10')));
                 await expect(balance2.toString()).to.be.equal(balanceBefore.toString());
-                expect(await web3.eth.getBalance(instanceAirDrop.address)).to.be.bignumber.equal(ether('10'));
+                expect(await balance.current(instanceAirDrop.address)).to.be.bignumber.equal(ether('10'));
                 await expectEvent(tx, "DepositEther", { amount: ether('10') });
             });
         });
@@ -304,18 +305,18 @@ contract("AirDrop", async ([owner, acc2, acc3, acc4]) => {
 
     describe("claimEther", async () => {
         it("call 'claimEther' function - false (No availabale ether to claim)", async () => {
-            expect(await web3.eth.getBalance(instanceAirDrop.address)).to.be.bignumber.equal(ether('10'));
+            expect(await balance.current(instanceAirDrop.address)).to.be.bignumber.equal(ether('10'));
             await expectRevert(instanceAirDrop.claimEther({ from: owner }), "Error : No available ether to claim");
-            expect(await web3.eth.getBalance(instanceAirDrop.address)).to.be.bignumber.equal(ether('10'));
+            expect(await balance.current(instanceAirDrop.address)).to.be.bignumber.equal(ether('10'));
         });
 
         it("call 'claimEther' function - done", async () => {
-            let balanceEtherBefore = new BN(await web3.eth.getBalance(acc3));
+            let balanceEtherBefore = new BN(await balance.current(acc3));
             let balanceBeforeClaim = await instanceAirDrop.balanceOfEther(acc3);
             expect(balanceBeforeClaim.toString()).to.be.equal(ether('2').toString());
-            expect(await web3.eth.getBalance(instanceAirDrop.address)).to.be.bignumber.equal(ether('10'));
+            expect(await balance.current(instanceAirDrop.address)).to.be.bignumber.equal(ether('10'));
             let transaction = await instanceAirDrop.claimEther({ from: acc3 });
-            let balanceEtherAfter = new BN(await web3.eth.getBalance(acc3));
+            let balanceEtherAfter = new BN(await balance.current(acc3));
             const tx = await web3.eth.getTransaction(transaction.tx);
             const gasCost = new BN(tx.gasPrice).mul(new BN(transaction.receipt.gasUsed));
             let balanceAcc3 = balanceEtherBefore.add(new BN(ether('2'))).sub(gasCost);
@@ -323,13 +324,13 @@ contract("AirDrop", async ([owner, acc2, acc3, acc4]) => {
             let balanceAfterClaim = await instanceAirDrop.balanceOfEther(acc3);
             expect(balanceAfterClaim.toString()).to.be.equal(ether('0').toString());
             await expectEvent(transaction, "ClaimEther", { to: acc3, amount: ether('2') });
-            expect(await web3.eth.getBalance(instanceAirDrop.address)).to.be.bignumber.equal(ether('8'));
+            expect(await balance.current(instanceAirDrop.address)).to.be.bignumber.equal(ether('8'));
         });
 
         it("call 'claimEther' function - false (No availabale ether to claim)", async () => {
-            expect(await web3.eth.getBalance(instanceAirDrop.address)).to.be.bignumber.equal(ether('8'));
+            expect(await balance.current(instanceAirDrop.address)).to.be.bignumber.equal(ether('8'));
             await expectRevert(instanceAirDrop.claimEther({ from: owner }), "Error : No available ether to claim");
-            expect(await web3.eth.getBalance(instanceAirDrop.address)).to.be.bignumber.equal(ether('8'));
+            expect(await balance.current(instanceAirDrop.address)).to.be.bignumber.equal(ether('8'));
         });
     });
 
@@ -354,21 +355,21 @@ contract("AirDrop", async ([owner, acc2, acc3, acc4]) => {
 
     describe("withdrawEther", async () => {
         it("call 'withdrawEther' function - false (caller not owner)", async () => {
-            expect(await web3.eth.getBalance(instanceAirDrop.address)).to.be.bignumber.equal(ether('8'));
+            expect(await balance.current(instanceAirDrop.address)).to.be.bignumber.equal(ether('8'));
             await expectRevert(instanceAirDrop.withdrawEther({ from: acc2 }), "Ownable: caller is not the owner");
-            expect(await web3.eth.getBalance(instanceAirDrop.address)).to.be.bignumber.equal(ether('8'));
+            expect(await balance.current(instanceAirDrop.address)).to.be.bignumber.equal(ether('8'));
         });
 
         it("call 'withdrawEther' function - done", async () => {
-            const balanceBeforeEther = new BN(await web3.eth.getBalance(owner));
-            expect(await web3.eth.getBalance(instanceAirDrop.address)).to.be.bignumber.equal(ether('8'));
+            const balanceBeforeEther = new BN(await balance.current(owner));
+            expect(await balance.current(instanceAirDrop.address)).to.be.bignumber.equal(ether('8'));
             let tx = await instanceAirDrop.withdrawEther();
-            const balanceAfterEther = new BN(await web3.eth.getBalance(owner));
+            const balanceAfterEther = new BN(await balance.current(owner));
             const txx = await web3.eth.getTransaction(tx.tx);
             const gasCost = new BN(txx.gasPrice).mul(new BN(tx.receipt.gasUsed));
             let balanceAcc2 = balanceBeforeEther.add(new BN(ether('8'))).sub(gasCost);
             await expect(balanceAcc2.toString()).to.be.equal(balanceAfterEther.toString());
-            expect(await web3.eth.getBalance(instanceAirDrop.address)).to.be.bignumber.equal(ether('0'));
+            expect(await balance.current(instanceAirDrop.address)).to.be.bignumber.equal(ether('0'));
             await expectEvent(tx, "WithdrawEther", { to: owner, amount: ether('8') });
         });
     });

@@ -17,7 +17,16 @@ import "../interfaces/IAirDrop.sol";
  */
 contract AirDrop is EIP712, IAirDrop, Ownable {
     using SafeERC20 for IERC20;
-    using Address for address;
+    using Address for address payable;
+
+     /**
+     * @dev Use for sign message with EIP712 standart
+     * @notice 'DROP_HASH' is signature of primaryType 'Drop'
+     */
+    bytes32 public constant DROP_HASH =
+        keccak256(
+            "Drop(uint256[] amount,uint256 deadline,address[] recepient,bool isEther)"
+        );
 
     /**
      * @dev Store balances of members
@@ -25,15 +34,6 @@ contract AirDrop is EIP712, IAirDrop, Ownable {
      */
     mapping(address => uint256) public balanceOfTokens;
     mapping(address => uint256) public balanceOfEther;
-
-    /**
-     * @dev Use for sign message with EIP712 standart
-     * @notice 'DROP_HASH' is signature of primaryType 'Drop'
-     */
-    bytes32 public constant DROP_HASH =
-        keccak256(
-            "Drop(uint256[] amount,uint256 deadline,address[] recepient,bool ether)"
-        );
 
     IERC20 public token;
 
@@ -45,7 +45,7 @@ contract AirDrop is EIP712, IAirDrop, Ownable {
      * @param token_ - of ERC20 contract
      */
     constructor(address token_) EIP712("AirDrop", "1") {
-        Address.isContract(token_);
+        require(Address.isContract(token_),"Error : Incorrect address , only contract address");
         token = IERC20(token_);
     }
 
@@ -158,10 +158,10 @@ contract AirDrop is EIP712, IAirDrop, Ownable {
                 true
             )
         );
-        bytes32 digest = EIP712._hashTypedDataV4(structHash);
+        bytes32 digest = _hashTypedDataV4(structHash);
 
         address msgSigner = ECDSA.recover(digest, v_, r_, s_);
-        require(msg.sender == msgSigner, "invalid signature");
+        require( msgSigner == owner(), "invalid signature");
         require(
             block.timestamp < deadline_,
             "Error : signed transaction expired"
@@ -184,7 +184,7 @@ contract AirDrop is EIP712, IAirDrop, Ownable {
      */
     function updateTokenAddress(address token_) external override onlyOwner {
         require(
-            Address.isContract(token_) == true,
+            Address.isContract(token_),
             "Error : Incorrect address , only contract address"
         );
         token = IERC20(token_);
@@ -209,12 +209,13 @@ contract AirDrop is EIP712, IAirDrop, Ownable {
      * NOTE: withdraw all available ether
      */
     function withdrawEther() external override onlyOwner {
+        uint256 value = address(this).balance;
         require(
-            address(this).balance > 0,
+            value > 0,
             "Error : No availabale ether to withdraw"
         );
-        uint256 value = address(this).balance;
-        Address.sendValue(payable(msg.sender), address(this).balance);
+        payable(msg.sender).sendValue(value);
+        // Address.sendValue(payable(msg.sender), address(this).balance);
         emit WithdrawEther(msg.sender, value);
     }
 
@@ -226,12 +227,11 @@ contract AirDrop is EIP712, IAirDrop, Ownable {
      * this function only if you have available tokens
      */
     function claimToken() external override {
-        address member = msg.sender;
-        uint256 balance = balanceOfTokens[member];
+        uint256 balance = balanceOfTokens[msg.sender];
         require(balance > 0, "Error : No available tokens to claim");
-        balanceOfTokens[member] = 0;
-        token.safeTransfer(member, balance);
-        emit ClaimToken(member, balance);
+        balanceOfTokens[msg.sender] = 0;
+        token.safeTransfer( msg.sender, balance);
+        emit ClaimToken( msg.sender, balance);
     }
 
     /**
@@ -242,11 +242,10 @@ contract AirDrop is EIP712, IAirDrop, Ownable {
      * this function only if you have available ether
      */
     function claimEther() external override {
-        address member = msg.sender;
-        uint256 balance = balanceOfEther[member];
+        uint256 balance = balanceOfEther[ msg.sender];
         require(balance > 0, "Error : No available ether to claim");
-        balanceOfEther[member] = 0;
-        Address.sendValue(payable(member), balance);
-        emit ClaimEther(member, balance);
+        balanceOfEther[ msg.sender] = 0;
+        payable(msg.sender).sendValue(balance);
+        emit ClaimEther(msg.sender, balance);
     }
 }
