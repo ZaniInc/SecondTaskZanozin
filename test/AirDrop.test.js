@@ -98,10 +98,14 @@ contract("AirDrop", async ([owner, acc2, acc3, acc4]) => {
     before(async () => {
         instanceToken = await MyToken.new();
         instanceTokenn = await MyTokenn.new();
-        await expectRevert(AirDrop.new(acc2), "Error : Incorrect address , only contract address");
         instanceAirDrop = await AirDrop.new(instanceToken.address);
     });
-
+    
+    describe("Deploy Vesting contract - false", async () => {
+        it("Error : Incorrect address , only contract address", async () => {
+            await expectRevert(AirDrop.new(acc2), "Error : Incorrect address , only contract address");
+        });
+    });
 
     describe("depositTokens", async () => {
         describe("depositTokens - false", async () => {
